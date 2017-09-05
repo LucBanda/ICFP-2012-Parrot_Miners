@@ -171,7 +171,7 @@ if sys.argv[2] == "kcontroler":
 	score = 0
 	while 1:
 		world.DoMove(control.get_next())
-		score += world.GetResult()
+		score = world.GetResult()
 		os.system("clear")
 		print world
 		if world.killed:
@@ -183,12 +183,12 @@ if sys.argv[2] == "kcontroler":
 
 if sys.argv[2] == "debugger":
 	score = 0
-	moves = ['D', 'L', 'R', 'D']
+	moves = ['R', 'R', 'R', 'R', 'R']
 	i = 0
 	while i < len(moves):
 		world.DoMove(moves[i])
 		i+=1
-		score += world.GetResult()
+		score = world.GetResult()
 		os.system("clear")
 		print world
 		if world.killed:

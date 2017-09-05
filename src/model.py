@@ -49,10 +49,9 @@ class LambdaMapState:
 
         self.UpdateMap()
 
-        if (self.killed):
-            self.score -= 1500
-
     def CheckValid(self, move):
+        if move == 'A':
+            return True
         if move == 'R':
             targetX = self.robotpos[0] + 1
             targetY = self.robotpos[1]
@@ -77,18 +76,29 @@ class LambdaMapState:
 
     def GetMoves(self):
         if self.killed or self.won:
-            return None
+            return []
         moves = [move for move in ['R','L','U','D'] if self.CheckValid(move)]
         return moves
 
     def GetRandomMove(self):
         if not self.killed and not self.won:
-            return random.choice(self.GetMoves())
-        else:
-            return None
+            moves = self.GetMoves()
+            if moves != []:
+                return random.choice(moves)
+        return None
 
     def GetResult(self):
+        if self.killed:
+            return self.score
+        if self.won:
+            return self.score
         return self.score
+
+    def isTerminal(self, move):
+        if self.killed or self.won:
+            return True
+        else:
+            return False
 
     def __str__(self):
         map_str = ""
@@ -113,10 +123,10 @@ class LambdaMapState:
                 if self.is_rock(self.lambda_map[x][y]):
                     # Rock falling straigth
                     if self.lambda_map[x][y - 1] == ' ':
-                        self.lambda_map[x][y - 1] = self.lambda_map[x][y]
+                        self.lambda_map[x][y - 1] = '*'
                         self.lambda_map[x][y] = ' '
                         # Rock rolling over rock to the right
-                        self.am_i_dead((x + 1, y - 1))
+                        self.am_i_dead((x, y - 1))
                     elif self.is_rock(self.lambda_map[x][y - 1]) and self.lambda_map[x + 1][y] == ' ' and \
                                     self.lambda_map[x + 1][y - 1] == ' ':
                         self.lambda_map[x + 1][y - 1] = self.lambda_map[x][y]
@@ -129,7 +139,7 @@ class LambdaMapState:
                         self.lambda_map[x - 1][y - 1] = self.lambda_map[x][y]
                         self.lambda_map[x][y] = ' '
                         # Rock rolling over lambda to the right
-                        self.am_i_dead((x + 1, y - 1))
+                        self.am_i_dead((x - 1, y - 1))
                     elif self.lambda_map[x][y - 1] == '\\' and self.lambda_map[x + 1][y] == ' ' and \
                                     self.lambda_map[x + 1][y - 1] == ' ':
                         self.lambda_map[x + 1][y - 1] = self.lambda_map[x][y]
