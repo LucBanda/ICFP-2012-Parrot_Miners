@@ -39,14 +39,17 @@ class Node:
         self.state = state
         self.maxScore = None
 
-    def UCTSelectChild(self):
+    def UCTSelectChild(self, explore = 1):
         """ Use the UCB1 formula to select a child node. Often a constant UCTK is applied so we have
             lambda c: c.wins/c.visits + UCTK * sqrt(2*log(self.visits)/c.visits to vary the amount of
             exploration versus exploitation.
         """
-        s = sorted(self.childNodes, key=lambda c: c.maxScore
+        s = sorted(self.childNodes, key=lambda c: 0 if c.state.killed or c.state.portal_is_blocked() else c.maxScore*5/self.visits
+                    + sqrt(2*log(self.visits) / c.visits)
+                    + explore * sqrt(100 / self.visits)
                     + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
-                      ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
+                      max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits, 1))
+                    )[-1]
 
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits)
         #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
@@ -97,14 +100,14 @@ class Node:
 class UCT:
 
     stabilityRef = 100
-    def __init__(self, rootstate, timeout, depthMax, k):
+    def __init__(self, rootstate, timeout, depthMax):
         self.timeout = timeout
         self.depthMax = depthMax
         self.rootNode = Node(state = rootstate)
         self.rootState = rootstate
-        self.multipleRollout = k
         self.stop = False
         self.number_of_evolutions = 0
+
     def playMove(self, move):
         for child in self.rootNode.childNodes:
             if child.move == move:
@@ -129,24 +132,23 @@ class UCT:
         while not self.stop:
             explored = 0
             node = self.rootNode
+            state = self.rootState.Clone()
 
             # Select
             while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
                 node = node.UCTSelectChild()
+                state.DoMove(node.move)
                 explored += 1
 
             if explored > 0:
-                state = node.state.Clone()
-                print state
-                if state.isTerminal(node.move):
+                if state.isTerminal():
                     if node.state.won:
                         break
                     while node != None:  # backpropagate from the expanded node and work back to the root node
                         node.Update(state.GetResult())  # state is terminal. Update node with result from POV of node.playerJustMoved
                         node = node.parentNode
                     printErr("explored : " + str(number_of_addchild) + " evolved : " + str(
-                        self.number_of_evolutions) + " length : " + str(explored) + " multiple factor : " + str(
-                        self.multipleRollout))
+                        self.number_of_evolutions) + " length : " + str(explored))
 
                     continue
             else:
@@ -161,31 +163,21 @@ class UCT:
 
 
             # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
-            bestscore = None
-            for i in range(0, self.multipleRollout):
-                stateRollout = state.Clone()
-                rolloutNode = node
-                terminal = False
-                iteration = 0
-                m=None
-                while (not stateRollout.isTerminal(m) and not terminal): # while state is non-terminal
-                    m = stateRollout.GetRandomMove()
-                    if m:
-                        stateRollout.DoMove(m)
-                        self.number_of_evolutions += 1
-                    iteration += 1
-                    score = stateRollout.GetResult()
-                    if not bestscore or bestscore < score:
-                        bestscore = score
-                    if iteration > self.depthMax:
-                        terminal = True
-            if not bestscore:
-                bestscore = state.GetResult()
-            while rolloutNode != None: # backpropagate from the expanded node and work back to the root node
-                rolloutNode.Update(bestscore) # state is terminal. Update node with result from POV of node.playerJustMoved
-                rolloutNode = rolloutNode.parentNode
+            m=None
+            iteration = 0
+            while (not state.isTerminal() and iteration < self.depthMax): # while state is non-terminal
+                m = state.GetRandomMove()
+                if m:
+                    state.DoMove(m)
+                    self.number_of_evolutions += 1
+                iteration += 1
+            while node != None: # backpropagate from the expanded node and work back to the root node
+                node.Update(state.GetResult()) # state is terminal. Update node with result from POV of node.playerJustMoved
+                node = node.parentNode
 
-            printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) + " multiple factor : " + str(self.multipleRollout))
+            os.system("clear")
+            print state
+            printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) )
 
         self.stopTime = time.time()
         return self.GetResult()
@@ -195,18 +187,20 @@ class UCT:
         node = self.rootNode
         state = self.rootState
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = node.UCTSelectChild()
+            node = node.UCTSelectChild(0)
             result.append(node.move)
         return result # return the move that was most visited
 
 
     def printResult(self):
         node = self.rootNode
+        state = self.rootState
         print "printing result"
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = node.UCTSelectChild()
+            node = node.UCTSelectChild(0)
+            state.DoMove(node.move)
             os.system("clear")
-            print node.state
-            time.sleep(0.25)
+            print state
+            time.sleep(0.15)
         print str(int(self.number_of_evolutions / (self.stopTime - self.startTime)))
         print node.state.GetResult()

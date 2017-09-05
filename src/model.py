@@ -91,14 +91,14 @@ class LambdaMapState:
 
     def GetResult(self):
         if self.killed:
-            return self.score - 50
+            return self.score
         if self.won:
             return self.score
         if self.portal_is_blocked():
-            return self.score -50
+            return self.score
         return self.score
 
-    def isTerminal(self, move):
+    def isTerminal(self):
         if self.killed or self.won or self.portal_is_blocked():
             return True
         else:
@@ -187,7 +187,7 @@ class LambdaMapState:
 
 
     def move(self, x, y, xp, yp):
-        self.score -= 1
+        self.score -= 2
         if self.lambda_map[xp][yp] == ' ' \
                 or self.lambda_map[xp][yp] == '.' \
                 or self.lambda_map[xp][yp] == '\\' \
