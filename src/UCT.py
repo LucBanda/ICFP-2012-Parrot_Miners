@@ -50,7 +50,15 @@ class Node:
                     + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
                       max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits, 1))
                     )[-1]
-
+        #exploration = explore * sqrt(10 / self.visits)
+        #rough_distance = (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") / max(((abs(
+        #    self.state.robotpos[0] - self.state.portal[0]) + abs(
+        #    self.state.robotpos[1] - self.state.portal[1]))) * self.visits, 1)
+        #s = sorted(self.childNodes, key=lambda c: c.maxScore
+                                                  # + sqrt(log(self.visits) / c.visits)
+        #                                          + exploration
+        #                                          + rough_distance
+        #           )[-1]
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits)
         #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
         #              ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
@@ -128,7 +136,7 @@ class UCT:
         self.startTime = time.time()
 
         signal.signal(signal.SIGINT, lambda signum, frame:self.stop_loop())
-
+        self.won = 0
         while not self.stop:
             explored = 0
             node = self.rootNode
@@ -142,8 +150,10 @@ class UCT:
 
             if explored > 0:
                 if state.isTerminal():
-                    if node.state.won:
-                        break
+                    if state.won:
+                        self.won += 1
+                        if self.won > 100:
+                            break
                     while node != None:  # backpropagate from the expanded node and work back to the root node
                         node.Update(state.GetResult())  # state is terminal. Update node with result from POV of node.playerJustMoved
                         node = node.parentNode
@@ -176,8 +186,8 @@ class UCT:
                 node = node.parentNode
 
             os.system("clear")
-            print state
-            printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) )
+            print self.rootState
+            printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) + " won : "+str(self.won))
 
         self.stopTime = time.time()
         return self.GetResult()
@@ -197,7 +207,7 @@ class UCT:
         state = self.rootState
         print "printing result"
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = node.UCTSelectChild(0)
+            node = sorted(node.childNodes, key = lambda c: c.maxScore)[-1]
             state.DoMove(node.move)
             os.system("clear")
             print state
