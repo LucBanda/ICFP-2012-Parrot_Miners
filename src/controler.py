@@ -1,11 +1,7 @@
 import sys, os,  tty, termios
 import copy
-from mapupdater import world
 from threading import Event
-import random
-import time
-import pdb
-
+from UCT import UCT
 	
 
 	
@@ -94,133 +90,13 @@ class explorerstate:
 class botcontroler(controler):
 	
 	def __init__(self, world):
-		controler.__init__(self, copy.deepcopy(world))
-		
-		#~ if world.hasBeard:
-			#~ ACTIONS.append("S")		
-		self.ASV = {}
-		self.start = self.ASV[self.world.hash()] = explorerstate()
-		#~ print self.start
-		self.updated = False
-		self.solution_trace_len = 0
-		self.final_trace = []
-		
-		self.exp_step_per_sec = 0
-		self.start_count = 0
-		
-	def update(self, current, world=None):
-		hopemax = -1500
-		if world and world.won:
-			current.hope = world.get_points()
-			return
-		for move in current.actionsresults:
-			if current.actionsresults[move] != None:
-				hopemove = current.actionspoints[move] + current.actionsresults[move].hope
-				if hopemove > hopemax:
-					hopemax = hopemove
-					current.maxhopeaction = move
-		current.hope = hopemax
-		
+		controler.__init__(self, world)
+		self.explorer = UCT(world, None, 5, 1000)
+
 	def explore_step(self):
-		#uncomment to mesure perf
-
-		
-		trace = []
-		curiosity = 10
-		
-		self.world.reset()
-		current = self.ASV[self.world.hash()]
-		trace.append(current)
-		#~ print "exploring_step"
-		trace_max = self.world.num_cols * self.world.num_rows
-		ACTIONS_len = len(ACTIONS)
-		while current and not self.world.won and not self.world.killed and len(trace) < trace_max:
-			
-			self.exp_step_per_sec +=1
-			if self.start_count == 0:
-				self.start_count = time.clock()+1
-			elif self.start_count < time.clock():
-				print self.exp_step_per_sec, " step/s"
-				self.start_count = 0
-				self.exp_step_per_sec=0
-			
-			randomize = False
-			# check if we can still move
-			if len(current.actionsresults) == len(ACTIONS):
-				if len([item for item in current.actionsresults if (current.actionsresults[item] not in trace and current.actionsresults[item] != None)]) == 0:
-					break
-					
-			random.seed = time.clock()
-								
-			if current.maxhopeaction != "A":
-				next_move = current.maxhopeaction
-				randomize = random.randint(0,100) < curiosity
-			else:
-				randomize = True
-			
-			if randomize:
-				next_move = ACTIONS[random.randint(0, len(ACTIONS)-1)]		
-			
-			current.explore(self.world, next_move, self.ASV)
-
-			
-			if current.actionsresults[next_move] and current.actionsresults[next_move] not in trace:
-				
-				#~ os.system("clear")
-				#~ print self.world
-				#~ print current
-				#~ time.sleep(0.1)
-				self.world.validate(True)
-				current = current.actionsresults[next_move]
-				trace.append(current)
-			else:
-				self.world.validate(False)
-			
-		self.update(trace.pop(), self.world)
-		
-		trace.reverse()
-		for state in trace:
-			self.update(state)
-			
-		return True
-			
-		#~ print "************* END ****************************"
-		#~ for value in self.ASV.values(): print value
-		#~ print len(self.ASV)
-		#~ print "*****************************************"
-		#pdb.set_trace()
+		self.explorer.run()
 		return True
 
-	def get_next(self):
-		#for value in self.ASV.values(): print value
-		#print len(self.ASV)
-		#~ print "*****************************************"
-		#~ print self.ASV[hash_the_world(self.world)]
-		#~ pdb.set_trace()
-		#~ if not self.updated:
-			#~ print "saving map"
-			#~ self.updated = True
-			#~ self.update()
-			#~ f = open("saved_map","w")
-			#~ stdout = sys.stdout
-			#~ sys.stdout = f
-			#~ print self.start
-			#~ print "**********************"
-			#~ for value in self.ASV.values(): print value
-			#~ sys.stdout = stdout
-		
-		self.solution_trace_len +=1
-		if self.solution_trace_len > self.world.num_cols * self.world.num_rows:
-			return "A"
-		state = self.start
-		self.final_trace.append(state)
-		if len(self.final_trace) > 3:
-			if self.final_trace[len(self.final_trace)-1] == self.final_trace[len(self.final_trace)-3]:
-				return "A"
-				
-		action = state.maxhopeaction
-		if action != "A":
-			if action not in state.actionsresults:
-				return "A"
-			self.start = state.actionsresults[action]
-		return action
+	def get_result(self):
+		self.explorer.printResult()
+		return self.explorer.GetResult()

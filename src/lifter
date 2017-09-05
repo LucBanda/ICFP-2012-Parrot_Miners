@@ -3,21 +3,15 @@
 
 
 import sys, os, signal, time
-from threading import Thread
-from threading import Event
-from mapupdater import world, normallogger
+from model import LambdaMapState
 from controler import controler, kcontroler, botcontroler, SimulatorDieEvent
-
+from UCT import UCT
 
 if len(sys.argv) != 1 and len(sys.argv) != 3:
 	print "usage: ", sys.argv[0], " debug <map_file_map>"
 	print "       or ",sys.argv[0]," < <map_file_map>"
 	exit(1)
-	
-if len(sys.argv) == 3:
-	debug = True
-else:
-	debug = False
+
 
 def reset_tty_and_exit():
 	#termios.tcsetattr(fd, termios.TCSANOW, old_settings)
@@ -30,7 +24,7 @@ def reset_tty_and_exit():
 		
 limiter_thread=None
 
-def handlerdebug(signum, frame):
+def handlerResult(signum, frame):
 	print 'Signal ', signum, 'catched'
 	if signum == signal.SIGINT:
 		print 'SIGINT, we exit !'
@@ -61,9 +55,19 @@ def handlerdebug(signum, frame):
 				raise
 	if signum == signal.SIGTERM:
 		print 'SIGTERM, we exit as well, did we miss SIGINT ??'
-		#~ ODIEUX, la map s'affiche!
-		#~ cont.set_movement("A")
-		#~ reset_tty_and_exit()
+		reset_tty_and_exit()
+
+def handlerdebug(signum, frame):
+	print 'Signal ', signum, 'catched'
+	if signum == signal.SIGINT:
+		print 'SIGINT, we exit !'
+		SimulatorDieEvent.stop_that.set()
+		raise
+	if signum == signal.SIGTERM:
+		print 'SIGTERM, we exit'
+		os.system("reset")
+		SimulatorDieEvent.stop_that.set()
+		sys.exit(0)
 
 
 def handler(signum, frame):
@@ -75,31 +79,8 @@ def handler(signum, frame):
 			if nextmove == "A" or world.killed or world.won:
 				exit(0)
 			
-if debug :
-	signal.signal(signal.SIGINT, handlerdebug)
-	signal.signal(signal.SIGTERM, handlerdebug)
-else:
-	signal.signal(signal.SIGINT, handler)
-	signal.signal(signal.SIGTERM, handler)
-	
-#time.clock() returns cpu time for the whole process (under linux/unix)
-#wait on locks or IO are not included
-def limiter_simulator():
-	while not SimulatorDieEvent.stop_that.wait(1) :
-		#print >> sys.stderr,"time clock"+str(time.clock())
-		if time.clock() > 160:
-			print >> sys.stderr, "Sending SIGTERM"
-			os.kill(os.getpid(), signal.SIGTERM)
-			print "Simulator died"
-			return
-		if time.clock() > 150: #will return true if flag is set
-			print >> sys.stderr,  "Sending SIGINT"
-			os.kill(os.getpid(), signal.SIGINT)
-			print "Simulator died"
-			return
-	return
-
-
+#signal.signal(signal.SIGINT, handlerdebug)
+#signal.signal(signal.SIGTERM, handlerdebug)
 
 def reindex(lambda_map):
 	height = len(lambda_map)
@@ -111,19 +92,12 @@ def reindex(lambda_map):
 			lambda_indexed[i][j]=lambda_map[j][i]
 			 # Filling beards list coordinates.
 	return lambda_indexed
-	
-	
-if debug:
-	limiter_thread=Thread(None,limiter_simulator,"Resources limiter").start()
 
 
 lambda_map = [[]]
 
+f = open(sys.argv[1])
 
-if debug :
-	f = open(sys.argv[2])
-else:
-	f = sys.stdin
 
 with f as m:
 	water_value=0
@@ -170,6 +144,7 @@ with f as m:
 
 
 lambda_map.pop(0)
+
 #padding with ' '
 maxcol = max([len(lambda_map[i]) for i,v in enumerate(lambda_map)])
 for i, val in enumerate(lambda_map):
@@ -178,27 +153,12 @@ for i, val in enumerate(lambda_map):
 
 
 lambda_map = reindex(lambda_map)
-#Now lambda_map is "reindexed"
-#get stuff out of displayer, try to minimise full traversal from happening
-#~ lambda_map=displayer.getmap()
-#~ lambdas=displayer.getlambda()
-#~ robotpos=displayer.getrobotpos()
-#~ trampstuff=displayer.gettrampostuff()
-#~ beards=displayer.getbeards()
 
-#~ beardstuff=(razors,growth,beards)
-#~ waterstuff=(water_value,flooding_value,waterproof_value)
-world = world(lambda_map) #, robotpos,lambdas,trampstuff,  waterstuff, beardstuff)
+world = LambdaMapState(lambda_map) #, robotpos,lambdas,trampstuff,  waterstuff, beardstuff)
 
-if debug and sys.argv[1] == "kcontroler":
-	control = kcontroler(world)
-elif debug and sys.argv[1] == "botcontroler" or not debug:
-	control = botcontroler(world)
-	
+os.system("clear")
+print world
 
-if debug :
-	os.system("clear")
-	print world
 #~ control = botcontroler(world)
 
 # We set terminal in raw mode to catch single key events
@@ -206,11 +166,12 @@ if debug :
 # which means read(1) will return, even without any \n
 
 
-if debug and sys.argv[1] == "kcontroler":
+if sys.argv[2] == "kcontroler":
+	control = kcontroler(world)
 	score = 0
 	while 1:
-		world.set_movement(control.get_next())
-		score += world.get_points()
+		world.DoMove(control.get_next())
+		score += world.GetResult()
 		os.system("clear")
 		print world
 		if world.killed:
@@ -220,31 +181,25 @@ if debug and sys.argv[1] == "kcontroler":
 			print score
 			reset_tty_and_exit()
 
-if debug and sys.argv[1] == "botcontroler":
+if sys.argv[2] == "debugger":
 	score = 0
-	while 1:
-		try:
-			explore_state = control.explore_step()
-			if not explore_state:
-				handlerdebug(signal.SIGINT,None)
-				SimulatorDieEvent.stop_that.set()
-				exit(0)
-		except:
-			SimulatorDieEvent.stop_that.set()
-			raise
+	moves = ['D', 'L', 'R', 'D']
+	i = 0
+	while i < len(moves):
+		world.DoMove(moves[i])
+		i+=1
+		score += world.GetResult()
+		os.system("clear")
+		print world
+		if world.killed:
+			print "lost"
+		elif world.won:
+			print score
 
+if sys.argv[2] == "botcontroler":
+	score = 0
+	#signal.signal(signal.SIGINT, handlerResult)
+	control = botcontroler(world)
+	explore_state = control.explore_step()
+	print control.get_result()
 
-#no debug mode
-while 1:
-	try:
-		explore_state = control.explore_step()
-		#~ update_state = control.update()
-		
-		#TO BE UNCOMMENTED WHEN WORKING VALIDATOR
-		#~ if not explore_state:
-			#~ handler(signal.SIGINT,None)
-			#~ break
-		#END
-	except:
-		SimulatorDieEvent.stop_that.set()
-		raise
