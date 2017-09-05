@@ -24,6 +24,8 @@ class LambdaMapState:
                         self.robotpos = (x,y)
                     if self.lambda_map[x][y] == "\\":
                         self.lambdas += 1
+                    if self.lambda_map[x][y] == "O" or self.lambda_map[x][y] == "L":
+                        self.portal = (x,y)
             self.lambdamax = self.lambdas
 
     def Clone(self):
@@ -75,7 +77,7 @@ class LambdaMapState:
         return False
 
     def GetMoves(self):
-        if self.killed or self.won:
+        if self.killed or self.won or self.portal_is_blocked():
             return []
         moves = [move for move in ['R','L','U','D'] if self.CheckValid(move)]
         return moves
@@ -89,13 +91,15 @@ class LambdaMapState:
 
     def GetResult(self):
         if self.killed:
-            return self.score
+            return self.score - 50
         if self.won:
             return self.score
+        if self.portal_is_blocked():
+            return self.score -50
         return self.score
 
     def isTerminal(self, move):
-        if self.killed or self.won:
+        if self.killed or self.won or self.portal_is_blocked():
             return True
         else:
             return False
@@ -157,6 +161,30 @@ class LambdaMapState:
 
     def kill(self):
         self.killed = True
+
+    def portal_is_blocked(self):
+        for (x,y) in [(self.portal[0] + 1, self.portal[1]),
+                      (self.portal[0] - 1, self.portal[1]),
+                      (self.portal[0], self.portal[1] + 1),
+                      (self.portal[0], self.portal[1] - 1)]:
+            if (x < 0) or (y < 0) or (x >= len(self.lambda_map)) or y >= (len(self.lambda_map[x])):
+                continue
+            if self.lambda_map[x][y] == '#' or self.lambda_map[x][y] == '*':
+                continue
+            if self.lambda_map[x][y] == '\\' or self.lambda_map == '.':
+                for (x2, y2) in [(x + 1, y),
+                               (x - 1, y),
+                               (x, y + 1),
+                               (x, y - 1)]:
+                    if (x2 < 0) or (y2 < 0) or (x2 >= len(self.lambda_map)) or y2 >= (len(self.lambda_map[x])):
+                        continue
+                    if self.lambda_map[x2][y2] == '#' or self.lambda_map[x2][y2] == '*' or self.lambda_map[x2][y2] == 'L':
+                        continue
+                    return False
+                continue
+            return False # it should be either . \ ' ' R
+        return True
+
 
     def move(self, x, y, xp, yp):
         self.score -= 1

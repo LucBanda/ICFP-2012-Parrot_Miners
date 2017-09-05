@@ -37,13 +37,21 @@ class Node:
         self.visits = 0
         self.untriedMoves = state.GetMoves() # future child nodes
         self.state = state
+        self.maxScore = None
 
     def UCTSelectChild(self):
         """ Use the UCB1 formula to select a child node. Often a constant UCTK is applied so we have
             lambda c: c.wins/c.visits + UCTK * sqrt(2*log(self.visits)/c.visits to vary the amount of
             exploration versus exploitation.
         """
-        s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits))[-1]
+        s = sorted(self.childNodes, key=lambda c: c.maxScore
+                    + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
+                      ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
+
+        #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits)
+        #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
+        #              ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
+        #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits) + sqrt(100/c.visits))[-1]
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits)[-1]
         return s
     
@@ -61,6 +69,8 @@ class Node:
         """
         self.visits += 1
         self.wins += result
+        if not self.maxScore or self.maxScore < result:
+            self.maxScore = result
 
     def __repr__(self):
         return "[M:" + str(self.move) + " W/V:" + str(self.wins) + "/" + str(self.visits) + " U:" + str(self.untriedMoves) + "]"
@@ -169,10 +179,6 @@ class UCT:
                         bestscore = score
                     if iteration > self.depthMax:
                         terminal = True
-                    else:
-                        pass
-            if stateRollout.won:
-                pass
             if not bestscore:
                 bestscore = state.GetResult()
             while rolloutNode != None: # backpropagate from the expanded node and work back to the root node
@@ -189,7 +195,7 @@ class UCT:
         node = self.rootNode
         state = self.rootState
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = sorted(node.childNodes, key = lambda c: c.visits)[-1]
+            node = node.UCTSelectChild()
             result.append(node.move)
         return result # return the move that was most visited
 

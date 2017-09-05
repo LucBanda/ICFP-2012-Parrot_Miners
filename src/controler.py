@@ -2,7 +2,7 @@ import sys, os,  tty, termios
 import copy
 from threading import Event
 from UCT import UCT
-	
+from math import *
 
 	
 class SimulatorDieEvent:
@@ -91,7 +91,7 @@ class botcontroler(controler):
 	
 	def __init__(self, world):
 		controler.__init__(self, world)
-		self.explorer = UCT(world, None, 20, 200)
+		self.explorer = UCT(world, None, 30, 200)
 
 	def explore_step(self):
 		self.explorer.run()
