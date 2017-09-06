@@ -44,17 +44,17 @@ class Node:
             lambda c: c.wins/c.visits + UCTK * sqrt(2*log(self.visits)/c.visits to vary the amount of
             exploration versus exploitation.
         """
-        maxScore = self.state.lambdamax * 100
-        s = sorted(self.childNodes, key=lambda c: c.maxScore
-                    + explore * sqrt(2*log(self.visits) / c.visits)
-                    + explore * sqrt(maxScore / self.visits)
-                   )[-1]
+        #maxScore = self.state.lambdamax * 100
+        #s = sorted(self.childNodes, key=lambda c: c.maxScore
+        #            + explore * sqrt(2*log(self.visits) / c.visits)
+        #            + explore * sqrt(maxScore / self.visits)
+        #           )[-1]
 
         #s = sorted(self.childNodes, key=lambda c: 0 if c.state.killed or c.state.portal_is_blocked() else c.maxScore/sqrt(self.visits)
         #            + explore * sqrt(2*log(self.visits) / c.visits)
                     #+ explore * sqrt(100 / self.visits)
-        #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
-        #              max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits, 1))
+                    #+ (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
+                    #  max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) / sqrt(self.visits), 1))
         #            )[-1]
         #exploration = explore * sqrt(10 / self.visits)
         #rough_distance = (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") / max(((abs(
@@ -68,7 +68,8 @@ class Node:
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits)
         #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
         #              ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
-        #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits) + sqrt(100/c.visits))[-1]
+        maxScore = self.state.lambdamax * 100
+        s = sorted(self.childNodes, key=lambda c: c.maxScore + explore *3*sqrt(2*log(self.visits) / c.visits))[-1]
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits)[-1]
         return s
     
@@ -143,7 +144,7 @@ class UCTModelBase:
 
 class UCT:
 
-    def __init__(self, rootstate, timeout, depthMax, mcDispersion = 100, printf_debug=False):
+    def __init__(self, rootstate, timeout, depthMax=50, mcDispersion = 50, printf_debug=True):
         self.printf_debug = printf_debug
         self.timeout = timeout
         self.depthMax = depthMax
@@ -183,7 +184,9 @@ class UCT:
             state = self.rootState.Clone()
 
             # Select
-            while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
+            while node.untriedMoves == [] and not state.isTerminal():  # node is fully expanded and non-terminal
+                if node.childNodes.size == 0:
+                    pass
                 node = node.UCTSelectChild()
                 state.DoMove(node.move)
                 explored += 1
@@ -192,7 +195,7 @@ class UCT:
                 if state.isTerminal():
                     if state.won():
                         self.won += 1
-                        if self.won > 10:
+                        if self.won > 100:
                             break
                     else:
                         self.lose += 1
@@ -208,6 +211,8 @@ class UCT:
                     #printErr("explored : " + str(number_of_addchild) + " evolved : " + str(
                     #    self.number_of_evolutions) + " length : " + str(explored))
                     continue
+                else:
+                    self.lose = 0
 
             if node.untriedMoves != []: # if we can expand (i.e. state/node is non-terminal)
                 m = random.choice(node.untriedMoves)
@@ -216,30 +221,38 @@ class UCT:
                 number_of_addchild += 1
                 self.number_of_evolutions += 1
 
-
-            rolloutState = state
-            rolloutNode = node
             # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
+            bestScore = None
             for i in range(0, self.mcDispersion):
                 iteration = 0
-                rolloutState = rolloutState.Clone()
+                rolloutState = state.Clone()
+                rolloutNode = node
                 while (not rolloutState.isTerminal() and iteration < self.depthMax): # while state is non-terminal
                     m = rolloutState.GetRandomMove()
                     if m:
                         rolloutState.DoMove(m)
                         self.number_of_evolutions += 1
                     iteration += 1
-                while rolloutNode != None: # backpropagate from the expanded node and work back to the root node
-                    rolloutNode.Update(rolloutState.GetResult()) # state is terminal. Update node with result from POV of node.playerJustMoved
-                    rolloutNode = rolloutNode.parentNode
+                score = rolloutState.GetResult()
+                if not bestScore or bestScore < score:
+                    bestScore = score
+            if not bestScore:
+                bestScore = state.GetResult()
+            while rolloutNode != None: # backpropagate from the expanded node and work back to the root node
+                rolloutNode.Update(bestScore) # state is terminal. Update node with result from POV of node.playerJustMoved
+                rolloutNode = rolloutNode.parentNode
 
             if timeout > time.time() - self.startTime:
                 self.stop_loop()
 
             if self.printf_debug:
                 os.system("clear")
-                print self.rootState
-                printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) + " won : "+str(self.won))
+                print state
+                printErr("explored : " + str(number_of_addchild)
+                         + " evolved : " + str(self.number_of_evolutions)
+                         + " length : " + str(explored)
+                         + " won : " + str(self.won)
+                         + " lost :" + str(self.lose))
 
         print ("Solution Found")
         self.stopTime = time.time()
@@ -250,7 +263,7 @@ class UCT:
         node = self.rootNode
         state = self.rootState
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = node.UCTSelectChild(0)
+            node = sorted(node.childNodes, key = lambda c: c.visits)[-1]
             result.append(node.move)
         return result # return the move that was most visited
 
@@ -260,7 +273,7 @@ class UCT:
         state = self.rootState
         print "printing result"
         while node.untriedMoves == [] and node.childNodes.size != 0:  # node is fully expanded and non-terminal
-            node = sorted(node.childNodes, key = lambda c: c.maxScore)[-1]
+            node = sorted(node.childNodes, key = lambda c: c.visits)[-1]
             state.DoMove(node.move)
             os.system("clear")
             print state

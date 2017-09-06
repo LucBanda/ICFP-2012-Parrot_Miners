@@ -92,16 +92,19 @@ class LambdaMapState(UCTModelBase):
         return None
 
     def GetResult(self):
-        if self.killed:
-            return self.score
+        modified_score = self.score
         if self.win:
-            return self.score
-        if self.portal_is_blocked():
-            return self.score
-        return self.score
+            return self.score + 50 * (self.lambdamax - self.lambdas)
+
+        if self.lambda_map[self.portal[0]][self.portal[1]] == 'O':
+            modified_score += 25 * (self.lambdamax - self.lambdas)
+        elif self.isTerminal():
+            modified_score -= 25 * (self.lambdamax - self.lambdas)
+
+        return modified_score
 
     def isTerminal(self):
-        if self.killed or self.win or self.portal_is_blocked():
+        if self.killed or self.win or self.portal_is_blocked() or len(self.GetMoves()) == 0:
             return True
         else:
             return False
