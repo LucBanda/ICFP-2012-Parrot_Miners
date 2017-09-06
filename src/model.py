@@ -1,8 +1,9 @@
 import copy
 import sys
 import random
+from UCT import UCTModelBase
 
-class LambdaMapState:
+class LambdaMapState(UCTModelBase):
     """ A state of the game, i.e. the game board. These are the only functions which are
         absolutely necessary to implement UCT in any 2-player complete information deterministic
         zero-sum game, although they can be enhanced and made quicker, for example by using a
@@ -13,7 +14,7 @@ class LambdaMapState:
         self.lambda_map = lambda_map
         self.killed = False
         self.score = 0
-        self.won = False
+        self.win = False
         if robotpos:
             self.robotpos = robotpos
         else:
@@ -33,7 +34,7 @@ class LambdaMapState:
         clone.score = self.score
         clone.lambdas = self.lambdas
         clone.lambdamax = self.lambdamax
-        clone.won = self.won
+        clone.win = self.win
         clone.killed = self.killed
         return clone
 
@@ -48,6 +49,9 @@ class LambdaMapState:
             self.move(self.robotpos[0], self.robotpos[1], self.robotpos[0] + 1, self.robotpos[1])
 
         self.UpdateMap()
+
+    def won(self):
+        return self.win
 
     def CheckValid(self, move):
         if move == 'A':
@@ -75,13 +79,13 @@ class LambdaMapState:
         return False
 
     def GetMoves(self):
-        if self.killed or self.won or self.portal_is_blocked():
+        if self.killed or self.win or self.portal_is_blocked():
             return []
         moves = [move for move in ['R','L','U','D'] if self.CheckValid(move)]
         return moves
 
     def GetRandomMove(self):
-        if not self.killed and not self.won:
+        if not self.killed and not self.win:
             moves = self.GetMoves()
             if moves != []:
                 return random.choice(moves)
@@ -90,14 +94,14 @@ class LambdaMapState:
     def GetResult(self):
         if self.killed:
             return self.score
-        if self.won:
+        if self.win:
             return self.score
         if self.portal_is_blocked():
             return self.score
         return self.score
 
     def isTerminal(self):
-        if self.killed or self.won or self.portal_is_blocked():
+        if self.killed or self.win or self.portal_is_blocked():
             return True
         else:
             return False
@@ -217,7 +221,7 @@ class LambdaMapState:
         # Going into open lift
         elif self.lambda_map[xp][yp] == 'O':
             self.score += 50 * self.lambdamax
-            self.won = True
+            self.win = True
             self.lambda_map[xp][yp] = 'R'
             self.robotpos = (xp, yp)
             self.lambda_map[x][y] = ' '

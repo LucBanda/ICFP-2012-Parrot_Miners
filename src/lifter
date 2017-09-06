@@ -47,7 +47,7 @@ def handlerResult(signum, frame):
 				if world.killed:
 					print "lost"
 					reset_tty_and_exit()
-				elif world.won:
+				elif world.win:
 					print score
 					reset_tty_and_exit()
 			except:
@@ -76,7 +76,7 @@ def handler(signum, frame):
 			nextmove = control.get_next()
 			world.set_movement(nextmove)
 			sys.stdout.write(nextmove)
-			if nextmove == "A" or world.killed or world.won:
+			if nextmove == "A" or world.killed or world.win:
 				exit(0)
 			
 #signal.signal(signal.SIGINT, handlerdebug)
@@ -177,7 +177,7 @@ if sys.argv[2] == "kcontroler":
 		if world.killed:
 			print "lost"
 			reset_tty_and_exit()
-		elif world.won:
+		elif world.win:
 			print score
 			reset_tty_and_exit()
 
@@ -193,7 +193,7 @@ if sys.argv[2] == "debugger":
 		print world
 		if world.killed:
 			print "lost"
-		elif world.won:
+		elif world.win:
 			print score
 
 if sys.argv[2] == "botcontroler":

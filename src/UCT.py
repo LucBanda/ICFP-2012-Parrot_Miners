@@ -110,11 +110,41 @@ class Node:
              s += str(c) + "\n"
         return s
 
+class UCTModelBase:
+    def __init__(self):
+        pass
+
+    def Clone(self):
+        return UCTModelBase()
+
+    def DoMove(self, move):
+        #executes the move
+        pass
+
+    def GetResult(self):
+        #returns the score of the state
+        return 0
+
+    def GetMoves(self):
+        #return the list of available moves
+        return []
+
+    def GetRandomMove(self):
+        #return a randomMove
+        pass
+
+    def isTerminal(self):
+        #return True if state if a win or a loss
+        return False
+
+    def won(self):
+        #return True if state is a win
+        return False
 
 class UCT:
 
-    stabilityRef = 100
-    def __init__(self, rootstate, timeout, depthMax, mcDispersion = 100):
+    def __init__(self, rootstate, timeout, depthMax, mcDispersion = 100, printf_debug=False):
+        self.printf_debug = printf_debug
         self.timeout = timeout
         self.depthMax = depthMax
         self.rootNode = Node(state = rootstate)
@@ -129,22 +159,24 @@ class UCT:
                 self.rootNode = child
                 break
         self.rootState.DoMove(move)
-        self.resultStability = self.stabilityRef
 
     def stop_loop(self):
         self.stop = True
 
-    def run(self):
+    def set_infinite_sigint_loot(self):
+        signal.signal(signal.SIGINT, lambda signum, frame: self.stop_loop())
+
+    def run(self, timeout=None):
         """ Conduct a UCT search for itermax iterations starting from rootstate.
             Return the best move from the rootstate.
             Assumes 2 alternating players (player 1 starts), with game results in the range [0.0, 1.0]."""
         number_of_addchild = 0
         self.startTime = time.time()
 
-        signal.signal(signal.SIGINT, lambda signum, frame:self.stop_loop())
         self.won = 0
         self.lose = 0
-
+        if not timeout:
+            self.set_infinite_sigint_loot()
         while not self.stop:
             explored = 0
             node = self.rootNode
@@ -158,7 +190,7 @@ class UCT:
 
             if explored > 0:
                 if state.isTerminal():
-                    if state.won:
+                    if state.won():
                         self.won += 1
                         if self.won > 10:
                             break
@@ -175,7 +207,6 @@ class UCT:
                         node = node.parentNode
                     #printErr("explored : " + str(number_of_addchild) + " evolved : " + str(
                     #    self.number_of_evolutions) + " length : " + str(explored))
-
                     continue
 
             if node.untriedMoves != []: # if we can expand (i.e. state/node is non-terminal)
@@ -202,10 +233,15 @@ class UCT:
                     rolloutNode.Update(rolloutState.GetResult()) # state is terminal. Update node with result from POV of node.playerJustMoved
                     rolloutNode = rolloutNode.parentNode
 
-            os.system("clear")
-            print self.rootState
-            printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) + " won : "+str(self.won))
+            if timeout > time.time() - self.startTime:
+                self.stop_loop()
 
+            if self.printf_debug:
+                os.system("clear")
+                print self.rootState
+                printErr("explored : " + str(number_of_addchild) + " evolved : " + str(self.number_of_evolutions) + " length : " + str(explored) + " won : "+str(self.won))
+
+        print ("Solution Found")
         self.stopTime = time.time()
         return self.GetResult()
 
