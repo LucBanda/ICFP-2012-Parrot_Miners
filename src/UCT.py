@@ -128,7 +128,7 @@ class UCTModelBase:
 
 class UCT:
 
-    def __init__(self, rootstate, timeout, depthMax=50, mcDispersion = 1, printf_debug=True):
+    def __init__(self, rootstate, timeout, depthMax=50, mcDispersion = 50, printf_debug=True):
         self.printf_debug = printf_debug
         self.timeout = timeout
         self.depthMax = depthMax
@@ -168,15 +168,14 @@ class UCT:
             state = self.rootState.Clone()
 
             # Select
-            while node.untriedMoves == [] and not node.state.isTerminal():  # node is fully expanded and non-terminal
+            while node.untriedMoves == [] and not state.isTerminal():  # node is fully expanded and non-terminal
                 if node.childNodes.size == 0:
                     pass
                 node = node.UCTSelectChild()
-                #state.DoMove(node.move)
+                state.DoMove(node.move)
                 explored += 1
 
             if explored > 0:
-                state = node.state.Clone()
                 if state.isTerminal():
                     if state.won():
                         self.won += 1
@@ -198,8 +197,6 @@ class UCT:
                     continue
                 else:
                     self.lose = 0
-            else:
-                state = self.rootState.Clone()
 
             if node.untriedMoves != []: # if we can expand (i.e. state/node is non-terminal)
                 m = random.choice(node.untriedMoves)
@@ -220,13 +217,7 @@ class UCT:
                         rolloutState.DoMove(m)
                         self.number_of_evolutions += 1
                     iteration += 1
-                if rolloutState.isTerminal():
-                    if rolloutState.won():
-                        score = rolloutState.GetResult() + 100
-                    else:
-                        score = rolloutState.GetResult() - 100
-                else:
-                    score = rolloutState.GetResult()
+                score = rolloutState.GetResult()
                 if not bestScore or bestScore < score:
                     bestScore = score
             if not bestScore:

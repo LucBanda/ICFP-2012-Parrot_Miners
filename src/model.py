@@ -96,10 +96,11 @@ class LambdaMapState(UCTModelBase):
         if self.win:
             return self.score + 50 * (self.lambdamax - self.lambdas)
 
-        if self.lambda_map[self.portal[0]][self.portal[1]] == 'O':
-            modified_score += 25 * (self.lambdamax - self.lambdas)
-        elif self.isTerminal():
+        if self.isTerminal():
             modified_score -= 25 * (self.lambdamax - self.lambdas)
+        elif self.lambda_map[self.portal[0]][self.portal[1]] == 'O':
+            modified_score += 25 * (self.lambdamax - self.lambdas)
+
 
         return modified_score
 
