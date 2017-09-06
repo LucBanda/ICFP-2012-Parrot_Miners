@@ -98,5 +98,6 @@ class botcontroler(controler):
 		return True
 
 	def get_result(self):
+		sys.stdin.read(1)
 		self.explorer.printResult()
 		return self.explorer.GetResult()

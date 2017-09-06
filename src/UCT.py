@@ -108,13 +108,14 @@ class Node:
 class UCT:
 
     stabilityRef = 100
-    def __init__(self, rootstate, timeout, depthMax):
+    def __init__(self, rootstate, timeout, depthMax, mcDispersion = 100):
         self.timeout = timeout
         self.depthMax = depthMax
         self.rootNode = Node(state = rootstate)
         self.rootState = rootstate
         self.stop = False
         self.number_of_evolutions = 0
+        self.mcDispersion = mcDispersion
 
     def playMove(self, move):
         for child in self.rootNode.childNodes:
@@ -131,12 +132,13 @@ class UCT:
         """ Conduct a UCT search for itermax iterations starting from rootstate.
             Return the best move from the rootstate.
             Assumes 2 alternating players (player 1 starts), with game results in the range [0.0, 1.0]."""
-        startTime = time.time()
         number_of_addchild = 0
         self.startTime = time.time()
 
         signal.signal(signal.SIGINT, lambda signum, frame:self.stop_loop())
         self.won = 0
+        self.lose = 0
+
         while not self.stop:
             explored = 0
             node = self.rootNode
@@ -152,17 +154,23 @@ class UCT:
                 if state.isTerminal():
                     if state.won:
                         self.won += 1
-                        if self.won > 100:
+                        if self.won > 10:
                             break
+                    else:
+                        self.lose += 1
+                        if self.lose > 100:
+                            #reset
+                            self.rootNode = Node(state = self.rootState)
+                            self.won = 0
+                            self.lose = 0
+                            continue
                     while node != None:  # backpropagate from the expanded node and work back to the root node
                         node.Update(state.GetResult())  # state is terminal. Update node with result from POV of node.playerJustMoved
                         node = node.parentNode
-                    printErr("explored : " + str(number_of_addchild) + " evolved : " + str(
-                        self.number_of_evolutions) + " length : " + str(explored))
+                    #printErr("explored : " + str(number_of_addchild) + " evolved : " + str(
+                    #    self.number_of_evolutions) + " length : " + str(explored))
 
                     continue
-            else:
-                state = self.rootState.Clone()
 
             if node.untriedMoves != []: # if we can expand (i.e. state/node is non-terminal)
                 m = random.choice(node.untriedMoves)
@@ -172,18 +180,21 @@ class UCT:
                 self.number_of_evolutions += 1
 
 
+            rolloutState = state
+            rolloutNode = node
             # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
-            m=None
-            iteration = 0
-            while (not state.isTerminal() and iteration < self.depthMax): # while state is non-terminal
-                m = state.GetRandomMove()
-                if m:
-                    state.DoMove(m)
-                    self.number_of_evolutions += 1
-                iteration += 1
-            while node != None: # backpropagate from the expanded node and work back to the root node
-                node.Update(state.GetResult()) # state is terminal. Update node with result from POV of node.playerJustMoved
-                node = node.parentNode
+            for i in range(0, self.mcDispersion):
+                iteration = 0
+                rolloutState = rolloutState.Clone()
+                while (not rolloutState.isTerminal() and iteration < self.depthMax): # while state is non-terminal
+                    m = rolloutState.GetRandomMove()
+                    if m:
+                        rolloutState.DoMove(m)
+                        self.number_of_evolutions += 1
+                    iteration += 1
+                while rolloutNode != None: # backpropagate from the expanded node and work back to the root node
+                    rolloutNode.Update(rolloutState.GetResult()) # state is terminal. Update node with result from POV of node.playerJustMoved
+                    rolloutNode = rolloutNode.parentNode
 
             os.system("clear")
             print self.rootState

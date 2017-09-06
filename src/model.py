@@ -46,8 +46,6 @@ class LambdaMapState:
             self.move(self.robotpos[0], self.robotpos[1], self.robotpos[0] - 1, self.robotpos[1])
         if move == "R":
             self.move(self.robotpos[0], self.robotpos[1], self.robotpos[0] + 1, self.robotpos[1])
-        if move == "A":
-            self.score += 25 * (self.lambdamax - self.lambdas)
 
         self.UpdateMap()
 
