@@ -44,21 +44,27 @@ class Node:
             lambda c: c.wins/c.visits + UCTK * sqrt(2*log(self.visits)/c.visits to vary the amount of
             exploration versus exploitation.
         """
-        s = sorted(self.childNodes, key=lambda c: 0 if c.state.killed or c.state.portal_is_blocked() else c.maxScore*5/self.visits
-                    + sqrt(2*log(self.visits) / c.visits)
-                    + explore * sqrt(100 / self.visits)
-                    + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
-                      max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits, 1))
-                    )[-1]
+        maxScore = self.state.lambdamax * 100
+        s = sorted(self.childNodes, key=lambda c: c.maxScore
+                    + explore * sqrt(2*log(self.visits) / c.visits)
+                    + explore * sqrt(maxScore / self.visits)
+                   )[-1]
+
+        #s = sorted(self.childNodes, key=lambda c: 0 if c.state.killed or c.state.portal_is_blocked() else c.maxScore/sqrt(self.visits)
+        #            + explore * sqrt(2*log(self.visits) / c.visits)
+                    #+ explore * sqrt(100 / self.visits)
+        #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
+        #              max(((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits, 1))
+        #            )[-1]
         #exploration = explore * sqrt(10 / self.visits)
         #rough_distance = (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") / max(((abs(
         #    self.state.robotpos[0] - self.state.portal[0]) + abs(
         #    self.state.robotpos[1] - self.state.portal[1]))) * self.visits, 1)
         #s = sorted(self.childNodes, key=lambda c: c.maxScore
-                                                  # + sqrt(log(self.visits) / c.visits)
+        #                                          # + sqrt(log(self.visits) / c.visits)
         #                                          + exploration
         #                                          + rough_distance
-        #           )[-1]
+        #          )[-1]
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits + sqrt(log(self.visits) / c.visits)
         #            + (self.state.lambda_map[self.state.portal[0]][self.state.portal[1]] == "O") /
         #              ((abs(self.state.robotpos[0] - self.state.portal[0]) + abs(self.state.robotpos[1] - self.state.portal[1])) * self.visits))[-1]
