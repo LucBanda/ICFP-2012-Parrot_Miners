@@ -15,19 +15,25 @@ class LambdaMapState(UCTModelBase):
         self.killed = False
         self.score = 0
         self.win = False
+        self.rocks=[]
         if robotpos:
             self.robotpos = robotpos
-        else:
-            self.lambdas = 0
-            for x in range(len(self.lambda_map)):
-                for y in range(len(self.lambda_map[0])):
-                    if self.lambda_map[x][y] == "R":
-                        self.robotpos = (x,y)
-                    if self.lambda_map[x][y] == "\\":
-                        self.lambdas += 1
-                    if self.lambda_map[x][y] == "O" or self.lambda_map[x][y] == "L":
-                        self.portal = (x,y)
-            self.lambdamax = self.lambdas
+
+        self.lambdas = 0
+        self.robotpos = None
+        for x in range(len(self.lambda_map)):
+            for y in range(len(self.lambda_map[x])):
+                if self.lambda_map[x][y] == "R":
+                    self.robotpos = (x,y)
+                if self.lambda_map[x][y] == "\\":
+                    self.lambdas += 1
+                if self.lambda_map[x][y] == "O" or self.lambda_map[x][y] == "L":
+                    self.portal = (x,y)
+                if self.lambda_map[x][y] == "*":
+                    self.rocks.append((x,y))
+        self.lambdamax = self.lambdas
+        if not self.robotpos:
+            pass
 
     def Clone(self):
         clone = LambdaMapState(copy.deepcopy(self.lambda_map))
@@ -128,36 +134,46 @@ class LambdaMapState(UCTModelBase):
         return (char == '*') or (char == '@')
 
     def UpdateMap(self):
-        for x in range(len(self.lambda_map)):
-            for y in range(len(self.lambda_map[x])):
-                if self.is_rock(self.lambda_map[x][y]):
-                    # Rock falling straigth
-                    if self.lambda_map[x][y - 1] == ' ':
-                        self.lambda_map[x][y - 1] = '*'
-                        self.lambda_map[x][y] = ' '
-                        # Rock rolling over rock to the right
-                        self.am_i_dead((x, y - 1))
-                    elif self.is_rock(self.lambda_map[x][y - 1]) and self.lambda_map[x + 1][y] == ' ' and \
-                                    self.lambda_map[x + 1][y - 1] == ' ':
-                        self.lambda_map[x + 1][y - 1] = self.lambda_map[x][y]
-                        self.lambda_map[x][y] = ' '
-                        # Rock rolling over rock to the left
-                        self.am_i_dead((x + 1, y - 1))
-                    elif self.is_rock(self.lambda_map[x][y - 1]) and (
-                            self.lambda_map[x + 1][y] != ' ' or self.lambda_map[x + 1][y - 1] != ' ') and \
-                                    self.lambda_map[x - 1][y] == ' ' and self.lambda_map[x - 1][y - 1] == ' ':
-                        self.lambda_map[x - 1][y - 1] = self.lambda_map[x][y]
-                        self.lambda_map[x][y] = ' '
-                        # Rock rolling over lambda to the right
-                        self.am_i_dead((x - 1, y - 1))
-                    elif self.lambda_map[x][y - 1] == '\\' and self.lambda_map[x + 1][y] == ' ' and \
-                                    self.lambda_map[x + 1][y - 1] == ' ':
-                        self.lambda_map[x + 1][y - 1] = self.lambda_map[x][y]
-                        self.lambda_map[x][y] = ' '
-                        self.am_i_dead((x + 1, y - 1))
-                # No lambdas left, opening lift
-                if self.lambda_map[x][y] == 'L' and self.lambdas == 0:
-                    self.lambda_map[x][y] = 'O'
+        self.newrocks = []
+        for x, y in self.rocks:
+            # Rock falling straigth
+            if self.lambda_map[x][y - 1] == ' ':
+                self.lambda_map[x][y - 1] = '*'
+                self.lambda_map[x][y] = ' '
+                self.newrocks.append((x,y-1))
+                # Rock rolling over rock to the right
+                self.am_i_dead((x, y - 1))
+            elif self.is_rock(self.lambda_map[x][y - 1]) and self.lambda_map[x + 1][y] == ' ' and \
+                            self.lambda_map[x + 1][y - 1] == ' ':
+                self.lambda_map[x + 1][y - 1] = '*'
+                self.lambda_map[x][y] = ' '
+                self.newrocks.append((x+1, y - 1))
+                # Rock rolling over rock to the left
+                self.am_i_dead((x + 1, y - 1))
+            elif self.is_rock(self.lambda_map[x][y - 1]) and (
+                    self.lambda_map[x + 1][y] != ' ' or self.lambda_map[x + 1][y - 1] != ' ') and \
+                            self.lambda_map[x - 1][y] == ' ' and self.lambda_map[x - 1][y - 1] == ' ':
+                self.lambda_map[x - 1][y - 1] = '*'
+                self.lambda_map[x][y] = ' '
+                self.newrocks.append((x - 1, y - 1))
+                # Rock rolling over lambda to the right
+                self.am_i_dead((x - 1, y - 1))
+            elif self.lambda_map[x][y - 1] == '\\' and self.lambda_map[x + 1][y] == ' ' and \
+                            self.lambda_map[x + 1][y - 1] == ' ':
+                self.lambda_map[x + 1][y - 1] = self.lambda_map[x][y]
+                self.lambda_map[x][y] = ' '
+                self.newrocks.append((x+1, y-1))
+                self.am_i_dead((x + 1, y - 1))
+            else:
+                self.newrocks.append((x,y))
+
+        self.rocks = self.newrocks
+        self.rocks.sort(key = lambda x:x[1])
+        self.rocks.sort(key = lambda x:x[0])
+
+        # No lambdas left, opening lift
+        if self.lambdas == 0 and self.lambda_map[self.portal[0]][self.portal[1]]:
+            self.lambda_map[self.portal[0]][self.portal[1]] = 'O'
 
     # If i have a rock over my head that's just been moved there, i'm dead :<
     # This must be called each time a rock moves
@@ -209,18 +225,22 @@ class LambdaMapState(UCTModelBase):
             self.robotpos = (xp, yp)
             return True
         # Pushing rock to the right
-        elif xp == x + 1 and self.is_rock(self.lambda_map[xp][yp]) and self.lambda_map[x + 2][y] == ' ':
-            self.lambda_map[xp + 1][yp] = self.lambda_map[xp][yp]
+        elif xp == x + 1 and self.lambda_map[xp][yp] == '*' and self.lambda_map[x + 2][y] == ' ':
+            self.lambda_map[xp + 1][yp] = '*'
             self.lambda_map[xp][yp] = 'R'
             self.lambda_map[x][y] = ' '
+            self.rocks.append((xp + 1,yp))
+            self.rocks.remove((xp, yp))
             self.robotpos = (xp, yp)
             return True
         # Pushing rock to the left
-        elif xp == x - 1 and self.is_rock(self.lambda_map[xp][yp]) and self.lambda_map[x - 2][y] == ' ':
-            self.lambda_map[xp - 1][yp] = self.lambda_map[xp][yp]
+        elif xp == x - 1 and self.lambda_map[xp][yp] == '*' and self.lambda_map[x - 2][y] == ' ':
+            self.lambda_map[xp - 1][yp] = '*'
             self.lambda_map[xp][yp] = 'R'
             self.lambda_map[x][y] = ' '
             self.robotpos = (xp, yp)
+            self.rocks.append((xp - 1,yp))
+            self.rocks.remove((xp, yp))
             return True
         # Going into open lift
         elif self.lambda_map[xp][yp] == 'O':
