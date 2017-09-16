@@ -5,12 +5,42 @@
 import sys, os, signal, time
 from model import LambdaMapState
 from controler import controler, kcontroler, botcontroler, SimulatorDieEvent
-from UCT import UCT
+from UCT import Node
+import getopt
 
-if len(sys.argv) != 1 and len(sys.argv) != 3:
-	print "usage: ", sys.argv[0], " debug <map_file_map>"
-	print "       or ",sys.argv[0]," < <map_file_map>"
-	exit(1)
+#if len(sys.argv) != 1 and len(sys.argv) != 3:
+#	print "usage: ", sys.argv[0], " debug <map_file_map>"
+#	print "       or ",sys.argv[0]," < <map_file_map>"
+#	exit(1)
+
+argv = sys.argv[1:]
+try:
+	opts, args = getopt.getopt(argv, "thdm:c:")
+except getopt.GetoptError:
+	print 'lifter [-h] [-d] [-t] -m map -c [kcontroller | botcontroller]'
+	sys.exit(2)
+
+debugAlgo = False
+
+for opt, arg in opts:
+	if opt == '-h':
+		print 'lifer[-d] [-h] -m map -c [kcontroller | botcontroller]'
+		print '-h : this help'
+		print '-d : enable debug'
+		print '-t : enable tracing display'
+		print '-m map : the maps which resides in ./maps/'
+		print '-c : the controller used :'
+		print '\tkcontroller for keyboard tests'
+		print '\tbotcontroller for bot use'
+		sys.exit()
+	elif opt == "-m":
+		mapfile = open(arg)
+	elif opt == "-c":
+		controller = arg
+	elif opt == "-d":
+		Node.debug = True
+	elif opt == "-t":
+		debugAlgo = True
 
 
 def reset_tty_and_exit():
@@ -19,68 +49,6 @@ def reset_tty_and_exit():
 	#~ os.system("reset")
 	time.sleep(1)
 	sys.exit(0)
-	
-
-		
-limiter_thread=None
-
-def handlerResult(signum, frame):
-	print 'Signal ', signum, 'catched'
-	if signum == signal.SIGINT:
-		print 'SIGINT, we exit !'
-		score = 0
-		route=""
-		while 1:
-			try:
-				nextmove = control.get_next()
-				route+=nextmove
-				world.set_movement(nextmove)
-				world.validate(True)					
-				score += world.get_points()
-				time.sleep(0.25)
-				os.system("clear")
-				print world
-				print "Route : ", route
-				if nextmove == "A":
-					print "abort ", score
-					reset_tty_and_exit()
-				if world.killed:
-					print "lost"
-					reset_tty_and_exit()
-				elif world.win:
-					print score
-					reset_tty_and_exit()
-			except:
-				SimulatorDieEvent.stop_that.set()
-				raise
-	if signum == signal.SIGTERM:
-		print 'SIGTERM, we exit as well, did we miss SIGINT ??'
-		reset_tty_and_exit()
-
-def handlerdebug(signum, frame):
-	print 'Signal ', signum, 'catched'
-	if signum == signal.SIGINT:
-		print 'SIGINT, we exit !'
-		SimulatorDieEvent.stop_that.set()
-		raise
-	if signum == signal.SIGTERM:
-		print 'SIGTERM, we exit'
-		os.system("reset")
-		SimulatorDieEvent.stop_that.set()
-		sys.exit(0)
-
-
-def handler(signum, frame):
-	if signum == signal.SIGINT:
-		while 1:
-			nextmove = control.get_next()
-			world.set_movement(nextmove)
-			sys.stdout.write(nextmove)
-			if nextmove == "A" or world.killed or world.win:
-				exit(0)
-			
-#signal.signal(signal.SIGINT, handlerdebug)
-#signal.signal(signal.SIGTERM, handlerdebug)
 
 def reindex(lambda_map):
 	height = len(lambda_map)
@@ -96,10 +64,8 @@ def reindex(lambda_map):
 
 lambda_map = [[]]
 
-f = open(sys.argv[1])
 
-
-with f as m:
+with mapfile as m:
 	water_value=0
 	flooding_value=0
 	waterproof_value=10
@@ -166,7 +132,7 @@ print world
 # which means read(1) will return, even without any \n
 
 
-if sys.argv[2] == "kcontroler":
+if controller == "kcontroler":
 	control = kcontroler(world)
 	score = 0
 	while 1:
@@ -181,7 +147,7 @@ if sys.argv[2] == "kcontroler":
 			print score
 			reset_tty_and_exit()
 
-if sys.argv[2] == "debugger":
+if controller == "debugger":
 	score = 0
 	moves = ['R', 'R', 'R', 'R', 'R']
 	i = 0
@@ -196,10 +162,10 @@ if sys.argv[2] == "debugger":
 		elif world.win:
 			print score
 
-if sys.argv[2] == "botcontroler":
+if controller == "botcontroler":
 	score = 0
 	#signal.signal(signal.SIGINT, handlerResult)
-	control = botcontroler(world)
+	control = botcontroler(world, debugAlgo)
 	explore_state = control.explore_step()
 	print control.get_result()
 

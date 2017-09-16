@@ -89,9 +89,9 @@ class explorerstate:
 
 class botcontroler(controler):
 	
-	def __init__(self, world):
+	def __init__(self, world, debug = False):
 		controler.__init__(self, world)
-		self.explorer = UCT(world, None)
+		self.explorer = UCT(world, None, debug=debug)
 
 	def explore_step(self):
 		self.explorer.run()

@@ -119,7 +119,7 @@ class LambdaMapState(UCTModelBase):
         + [(self.lambda_map[self.portal[0]][self.portal[1]], (self.portal[0],self.portal[1]))] \
         + [('R', (self.robotpos[0], self.robotpos[1]))] \
         + [("score", self.lambdas)]
-        return tuple(state)
+        return [tuple(state)]
 
     def isTerminal(self):
         if self.killed or self.win or self.portal_is_blocked() or len(self.GetMoves()) == 0:
