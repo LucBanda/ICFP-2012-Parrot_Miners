@@ -96,12 +96,13 @@ class Node:
             if not c.novel:# and c.state.GetResult() < self.state.GetResult():
                 meanVal = 0.
             else:
+                alpha = 0.5
                 explorationBalance = min(1.,
                             (sum([self.normalized(child.wins / child.visits) ** 2 for child in self.childNodes]) / c.visits
                              - self.normalized(c.maxScore) ** 2 + sqrt(1. * log(self.visits) / c.visits)))
                 #explorationBalance = 0.1
                 explorationFactor = explorationBalance * sqrt(log(self.visits) / c.visits)
-                meanVal = self.normalized(c.maxScore) + explore * explorationFactor
+                meanVal = alpha * self.normalized(c.wins/c.visits) + (1-alpha) * self.normalized(c.maxScore) + explore * explorationFactor
 
             if Node.debug:
                 print "children"
