@@ -14,6 +14,7 @@ class LambdaMapState(UCTModelBase):
         self.lambda_map = lambda_map
         self.killed = False
         self.score = 0.
+        self.realScore = 0.
         self.win = False
         self.rocks=[]
         self.lambdaPos=[]
@@ -40,6 +41,7 @@ class LambdaMapState(UCTModelBase):
     def Clone(self):
         clone = LambdaMapState(copy.deepcopy(self.lambda_map))
         clone.score = self.score
+        clone.realScore = self.realScore
         clone.lambdas = self.lambdas
         clone.lambdamax = self.lambdamax
         clone.win = self.win
@@ -105,9 +107,9 @@ class LambdaMapState(UCTModelBase):
             return self.score
 
         if self.isTerminal():
-            modified_score -= 25. * (self.lambdamax - self.lambdas)
+            modified_score -= 25. * self.lambdamax
         elif self.lambda_map[self.portal[0]][self.portal[1]] == 'O':
-            modified_score += 25. * (self.lambdamax - self.lambdas)
+            modified_score += 25. * self.lambdamax
 
         return modified_score
 
@@ -214,7 +216,8 @@ class LambdaMapState(UCTModelBase):
 
 
     def move(self, x, y, xp, yp):
-        self.score -= 1.
+        self.score -= 2.
+        self.realScore -= 1.
         if self.lambda_map[xp][yp] == ' ' \
                 or self.lambda_map[xp][yp] == '.' \
                 or self.lambda_map[xp][yp] == '\\' \
@@ -223,6 +226,7 @@ class LambdaMapState(UCTModelBase):
                 self.lambda_pickedup = True
                 self.lambdas -= 1
                 self.score += 25.
+                self.realScore += 25.
                 self.lambdaPos.remove((xp,yp))
                 # ~ if self.lambda_map[xp][yp] == '!': # Pick up razor
                 # ~ self.wadlersbeard.pickupRazor()
@@ -251,6 +255,7 @@ class LambdaMapState(UCTModelBase):
         # Going into open lift
         elif self.lambda_map[xp][yp] == 'O':
             self.score += 50. * self.lambdamax
+            self.realScore += 50. * self.lambdamax
             self.win = True
             self.lambda_map[xp][yp] = 'R'
             self.robotpos = (xp, yp)

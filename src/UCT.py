@@ -33,7 +33,7 @@ class Node:
     maxScoreInGame = 0.
     minScoreInGame = 0.
 
-    def __init__(self, move = None, parent = None, state = None):
+    def __init__(self, move = None, parent = None, state = None, debug = False):
         self.move = move # the move that got us to this node - "None" for the root node
         self.parentNode = parent # "None" for the root node
         self.childNodes = np.array([])
@@ -45,6 +45,7 @@ class Node:
         self.memorizedAtoms = []
         self.cachedNovelty = []
         self.novel = None
+        self.debug = debug
 
     def normalized(self, score):
         return (score - Node.minScoreInGame) / (Node.maxScoreInGame - Node.minScoreInGame)
@@ -60,8 +61,6 @@ class Node:
         self.memorizedAtoms += Ms
         for child in self.childNodes:
             child.novel = True
-            if child.state.win:
-                continue
             Mc = child.state.getAtoms()
             if (self.computeNovelty(Mc, self.memorizedAtoms)) > 1:
                 child.novel = False
@@ -91,26 +90,28 @@ class Node:
         for c in self.childNodes:
             #if not c.novel and c.maxScore < self.maxScore:
             #    continue
-            if not c.novel: # and c.maxScore < self.maxScore:
-                meanVal = Node.minScoreInGame
+            if not c.novel:# and c.maxScore < self.maxScore:
+                meanVal = 0.
             else:
-                #explorationBalance = min(5., (sum([self.normalized(child.wins / child.visits) ** 2 for child in
-                #                                   self.childNodes]) / c.visits - self.normalized(
-                #    c.maxScore) ** 2 + sqrt(2 * log(self.visits) / c.visits)))
-                explorationBalance = 2.
-                explorationFactor = sqrt(explorationBalance * log(self.visits) / c.visits)
+                explorationBalance = min(3., (sum([self.normalized(child.wins / child.visits) ** 2 for child in
+                                                   self.childNodes]) / c.visits - self.normalized(
+                    c.maxScore) ** 2 + sqrt(2 * log(self.visits) / c.visits)))
+                #explorationBalance = 3.
+                explorationFactor = explorationBalance * sqrt(log(self.visits) / c.visits)
                 meanVal = self.normalized(c.maxScore) + explore * explorationFactor
+
+            if self.debug:
+                print "move :" + str(c.move) + " novel:" + str(c.novel) + " selectionScore:" + str(meanVal)
 
             if maxVal <= meanVal:
                 maxVal = meanVal
                 maxChild = c
-        if maxChild == None:
-            pass
+
         return maxChild
 
         #s = sorted(self.childNodes, key=lambda c: meanVal + explore * explorationFactor)[-1]
         #s = sorted(self.childNodes, key=lambda c: c.wins / c.visits)[-1]
-        return s
+        #return s
     
     def AddChild(self, m, s):
         """ Remove m from untriedMoves and add a new child node for this move.
@@ -193,7 +194,7 @@ class UCTModelBase:
 
 class UCT:
 
-    def __init__(self, rootstate, timeout, depthMax=50, mcDispersion = 5, printf_debug=True):
+    def __init__(self, rootstate, timeout, depthMax=50, mcDispersion = 1, printf_debug=True):
         self.printf_debug = printf_debug
         self.timeout = timeout
         self.depthMax = depthMax
@@ -224,8 +225,6 @@ class UCT:
             if node.childNodes[0].novel == None:
                 node.noveltyTestSuccesors()
             node = node.UCTSelectChild()
-            if node.novel == False:
-                pass
         return node
 
     def expand(self, node):
@@ -283,17 +282,17 @@ class UCT:
 
         while not self.stop:
 
-            node = self.rootNode
             node = self.selectBestLeaf()
 
-            if self.printf_debug and self.number_of_addchild % 10 == 0:
+            if self.printf_debug and self.number_of_addchild % 1 == 0:
                 self.printDebug(node)
 
             if node.state.isTerminal():
                 if node.state.won():
                     self.won += 1
-                    if self.won > 1:
+                    if self.won > 300:
                         self.printDebug(node)
+                        #break
                 else:
                     self.lose += 1
                     if self.lose > 100:
@@ -302,12 +301,12 @@ class UCT:
                         self.graph=nx.Graph()
                         self.won = 0
                         self.lose = 0
-                score = node.state.GetResult()
-                self.backpropagate(node, score)
-                continue
+                #score = node.state.GetResult()
+                #self.backpropagate(node, score)
+                #continue
             else:
                 self.lose = 0
-                self.won = 0
+                #self.won = 0
 
             node = self.expand(node)
 
@@ -320,6 +319,9 @@ class UCT:
 
             if timeout > time.time() - self.startTime:
                 self.stop_loop()
+
+            #if self.printf_debug:
+            #    sys.stdin.read(1)
 
         self.stopTime = time.time()
         return self.GetResult()
@@ -347,4 +349,4 @@ class UCT:
                 print "not novel !! "
             time.sleep(0.15)
         print str(int(self.number_of_evolutions / (self.stopTime - self.startTime)))
-        print node.state.score
+        print node.state.realScore
