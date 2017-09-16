@@ -93,7 +93,7 @@ class Node:
             #    continue
             explorationFactor = None
             explorationBalance = None
-            if not c.novel and c.state.GetResult() < self.state.GetResult():
+            if not c.novel:# and c.state.GetResult() < self.state.GetResult():
                 meanVal = 0.
             else:
                 explorationBalance = min(1.,
@@ -206,7 +206,7 @@ class UCTModelBase:
 
 class UCT:
 
-    def __init__(self, rootstate, timeout, depthMax=25, mcDispersion = 10, debug=False):
+    def __init__(self, rootstate, timeout, depthMax=15, mcDispersion = 10, debug=False):
         self.debug = debug
         self.timeout = timeout
         self.depthMax = depthMax
@@ -281,14 +281,14 @@ class UCT:
             previousState = None
             while (not rolloutState.isTerminal() and iteration < self.depthMax):  # while state is non-terminal
                 m = rolloutState.GetRandomMove()
-                previousState = rolloutState.Clone()
+            #    previousState = rolloutState.Clone()
                 if m:
                     rolloutState.DoMove(m)
                     self.number_of_evolutions += 1
                 iteration += 1
 
-            if rolloutState.isTerminal() and not rolloutState.won() and previousState:
-                rolloutState = self.lossAvoidance(previousState)
+            #if rolloutState.isTerminal() and not rolloutState.won() and previousState:
+            #    rolloutState = self.lossAvoidance(previousState)
 
             score = rolloutState.GetResult()
             if not bestScore or bestScore < score:
