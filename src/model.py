@@ -13,9 +13,10 @@ class LambdaMapState(UCTModelBase):
     def __init__(self, lambda_map, robotpos=None):
         self.lambda_map = lambda_map
         self.killed = False
-        self.score = 0
+        self.score = 0.
         self.win = False
         self.rocks=[]
+        self.lambdaPos=[]
         if robotpos:
             self.robotpos = robotpos
 
@@ -27,6 +28,7 @@ class LambdaMapState(UCTModelBase):
                     self.robotpos = (x,y)
                 if self.lambda_map[x][y] == "\\":
                     self.lambdas += 1
+                    self.lambdaPos.append((x,y))
                 if self.lambda_map[x][y] == "O" or self.lambda_map[x][y] == "L":
                     self.portal = (x,y)
                 if self.lambda_map[x][y] == "*":
@@ -100,15 +102,22 @@ class LambdaMapState(UCTModelBase):
     def GetResult(self):
         modified_score = self.score
         if self.win:
-            return self.score + 50 * (self.lambdamax - self.lambdas)
+            return self.score
 
         if self.isTerminal():
-            modified_score -= 25 * (self.lambdamax - self.lambdas)
+            modified_score -= 25. * (self.lambdamax - self.lambdas)
         elif self.lambda_map[self.portal[0]][self.portal[1]] == 'O':
-            modified_score += 25 * (self.lambdamax - self.lambdas)
-
+            modified_score += 25. * (self.lambdamax - self.lambdas)
 
         return modified_score
+
+    def getAtoms(self):
+        state = [('*',(x,y)) for (x,y) in self.rocks] \
+        + [('\\',(x,y)) for (x,y) in self.lambdaPos] \
+        + [(self.lambda_map[self.portal[0]][self.portal[1]], (self.portal[0],self.portal[1]))] \
+        + [('R', (self.robotpos[0], self.robotpos[1]))] \
+        + [("score", self.lambdas)]
+        return tuple(state)
 
     def isTerminal(self):
         if self.killed or self.win or self.portal_is_blocked() or len(self.GetMoves()) == 0:
@@ -124,10 +133,6 @@ class LambdaMapState(UCTModelBase):
             for x in range(width):
                 map_str += (self.lambda_map[x][height - y - 1])
             map_str += "\n"
-        if self.killed:
-            print >> sys.stderr, 'Dead robot is dead :('
-            # ~ print self.waterworld
-            # ~ print self.wadlersbeard
         return map_str
 
     def is_rock(self, char):
@@ -209,7 +214,7 @@ class LambdaMapState(UCTModelBase):
 
 
     def move(self, x, y, xp, yp):
-        self.score -= 2
+        self.score -= 1.
         if self.lambda_map[xp][yp] == ' ' \
                 or self.lambda_map[xp][yp] == '.' \
                 or self.lambda_map[xp][yp] == '\\' \
@@ -217,7 +222,8 @@ class LambdaMapState(UCTModelBase):
             if self.lambda_map[xp][yp] == '\\':  # Pick up lambda
                 self.lambda_pickedup = True
                 self.lambdas -= 1
-                self.score += 25
+                self.score += 25.
+                self.lambdaPos.remove((xp,yp))
                 # ~ if self.lambda_map[xp][yp] == '!': # Pick up razor
                 # ~ self.wadlersbeard.pickupRazor()
             self.lambda_map[xp][yp] = 'R'
@@ -244,7 +250,7 @@ class LambdaMapState(UCTModelBase):
             return True
         # Going into open lift
         elif self.lambda_map[xp][yp] == 'O':
-            self.score += 50 * self.lambdamax
+            self.score += 50. * self.lambdamax
             self.win = True
             self.lambda_map[xp][yp] = 'R'
             self.robotpos = (xp, yp)
